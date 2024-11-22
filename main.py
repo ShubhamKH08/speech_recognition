@@ -1,26 +1,25 @@
-from flask import Flask, request, jsonify
+from flask import Flask, request, render_template, jsonify
 import os
-import pickle
 import numpy as np
-from tensorflow.keras.models import load_model
 import librosa
-import tensorflow as tf
+from tensorflow.keras.models import load_model
+import pickle
 
 app = Flask(__name__)
 
-# Load the model and required components
-model = load_model('/speech_to_text_model_.h5')
+# Load the saved model and mappings
+model = load_model('speech_recognition/speech_to_text_model_.h5')
 
-with open('/word_to_index.pkl', 'rb') as f:
+with open('speech_recognition/word_to_index.pkl', 'rb') as f:
     word_to_index = pickle.load(f)
 
-with open('/index_to_word.pkl', 'rb') as f:
+with open('speech_recognition/index_to_word.pkl', 'rb') as f:
     index_to_word = pickle.load(f)
 
-max_time_steps = 300
-decoder_input_data = np.load('/decoder_input_data.npy')
+max_time_steps = 300  # Adjust as per your model training
+decoder_input_data = np.load('speech_recognition/decoder_input_data.npy')
 
-# Define the prediction function
+# Prediction function
 def predict_audio_transcript(audio_path):
     y, _ = librosa.load(audio_path, sr=16000)
     spectrogram = librosa.feature.mfcc(y=y, sr=16000, n_mfcc=13).T
@@ -32,27 +31,35 @@ def predict_audio_transcript(audio_path):
 
     return " ".join(predicted_words)
 
-# Create a Flask route to handle file uploads and predictions
+# Route for homepage
+@app.route('/')
+def home():
+    return render_template('index.html')
+
+# Route for handling file upload
 @app.route('/predict', methods=['POST'])
 def predict():
     if 'audio' not in request.files:
-        return jsonify({'error': 'No audio file part'}), 400
+        return jsonify({'error': 'No file uploaded'})
 
-    audio_file = request.files['audio']
+    file = request.files['audio']
+    if file.filename == '':
+        return jsonify({'error': 'No file selected'})
 
-    if audio_file.filename == '':
-        return jsonify({'error': 'No selected file'}), 400
+    # Save file temporarily
+    file_path = os.path.join('uploads', file.filename)
+    os.makedirs('uploads', exist_ok=True)
+    file.save(file_path)
 
-    # Save the file to a temporary location
-    audio_path = '/content/drive/MyDrive/DL/Libri/train/audio/19-198-0009.flac'
-    audio_file.save(audio_path)
-
-    # Get the predicted transcript
     try:
-        predicted_transcript = predict_audio_transcript(audio_path)
-        return jsonify({'predicted_transcript': predicted_transcript})
+        # Predict transcript
+        transcript = predict_audio_transcript(file_path)
     except Exception as e:
-        return jsonify({'error': str(e)}), 500
+        return jsonify({'error': str(e)})
+    finally:
+        os.remove(file_path)  # Remove file after prediction
+
+    return jsonify({'transcript': transcript})
 
 if __name__ == '__main__':
     app.run(debug=True)
