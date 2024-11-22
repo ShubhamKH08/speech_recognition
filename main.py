@@ -8,16 +8,16 @@ import pickle
 app = Flask(__name__)
 
 # Load the saved model and mappings
-model = load_model('speech_recognition/speech_to_text_model_.h5')
+model = load_model('speech_to_text_model_.h5')
 
-with open('speech_recognition/word_to_index.pkl', 'rb') as f:
+with open('word_to_index.pkl', 'rb') as f:
     word_to_index = pickle.load(f)
 
-with open('speech_recognition/index_to_word.pkl', 'rb') as f:
+    with open('index_to_word.pkl', 'rb') as f:
     index_to_word = pickle.load(f)
 
 max_time_steps = 300  # Adjust as per your model training
-decoder_input_data = np.load('speech_recognition/decoder_input_data.npy')
+decoder_input_data = np.load('decoder_input_data.npy')
 
 # Prediction function
 def predict_audio_transcript(audio_path):
